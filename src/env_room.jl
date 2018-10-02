@@ -1,4 +1,4 @@
-# Code to define the environement room and rectangles used to define it
+# Code to define the environment room and rectangles used to define it
 # maintained by {jmorton2,kmenda}@stanford.edu
 
 # Define constants  -- all units in m

@@ -1,6 +1,7 @@
 # specification of particle filters for the bumper and lidar Roomba environments
 # maintained by {jmorton2,kmenda}@stanford.edu
 
+import POMDPs
 
 # structs specifying resamplers for bumper and lidar sensors
 struct BumperResampler
@@ -58,7 +59,6 @@ function ParticleFilters.resample(lr::LidarResampler, b::WeightedParticleBelief{
     return ps
 end
 
-import POMDPs
 # Modified Update function adds noise to the actions that propagate particles
 function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection{RoombaState}, a, o)
     ps = particles(b)
