@@ -28,5 +28,17 @@ Next, familiarize yourself with the source code by examining the files in the ``
 
 In case changes are made later, please do not modify any of the scripts in the ``src`` directory on your computer. Write all of your own code in a separate directory. If you feel like you need to change one of these files, please talk to the course staff and we will discuss other possible options.
 
+## Adding additional packages or running files from terminal
+If you would like to add additional packages or run files from terminal, please follow the procedure below.
+In julia, first enter the package manager by hitting the ```]``` key. Then activate the AA228FinalProject environment with the command
+```
+activate .
+```
+Once activated, your prompt should become:
+```
+(AA228FinalProject) pkg> 
+```
+Packages you now add will be added to the AA228FinalProject environment, and if you exit the package manager (by pressing backspace), the code you run while the environment is activated will have access to all packages specified in the ```Project.toml``` file.
+
 ## Contact
 If you have questions, first check the FAQ section on course webpage [here](https://web.stanford.edu/class/aa228/cgi-bin/wp/optional-final-project-escape-roomba), and post on the course Piazza in the ```optional_final_project``` folder if your question is unanswered.
