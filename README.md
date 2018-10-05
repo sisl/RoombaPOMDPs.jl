@@ -7,7 +7,7 @@ An example video showing the robot first localizing itself using its bump sensor
 ## Installation
 Clone this repository using
 ```
-git clone https://github.com/sisl/AA228FinalProjectDev.git
+git clone https://github.com/sisl/AA228FinalProject.git
 ```
 
 Then, run the following commands in Julia:
