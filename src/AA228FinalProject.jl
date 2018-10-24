@@ -24,6 +24,7 @@ export
     RoombaModel,
     BumperPOMDP,
     BumperResampler,
+    Bumper,
     Lidar,
     DiscreteLidar,
     LidarResampler,
