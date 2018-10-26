@@ -30,3 +30,6 @@ Reel = "71555da5-176e-5e73-a222-aebc6c6e4f2f"
 SARSOP = "cef570c6-3a94-5604-96b7-1a5e143043f2"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[compat]
+ParticleFilters = "0.2.0"
