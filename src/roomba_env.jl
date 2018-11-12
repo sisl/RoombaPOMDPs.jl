@@ -207,8 +207,8 @@ function POMDPs.initialstate(m::RoombaModel, rng::AbstractRNG)
     is = RoombaState(x, y, th, 0.0)
 
     if mdp(m).sspace isa DiscreteRoombaStateSpace
-        isi = stateindex(is)
-        is = index_to_state(isi)
+        isi = stateindex(m, is)
+        is = index_to_state(m, isi)
     end
 
     return is 
