@@ -12,6 +12,7 @@ using LinearAlgebra
 using Random
 using Base64
 using ParticleFilters
+using NearestNeighbors
 
 import POMDPModelTools: render
 
@@ -23,11 +24,15 @@ export
     RoombaModel,
     BumperPOMDP,
     BumperResampler,
+    Bumper,
     Lidar,
+    DiscreteLidar,
     LidarResampler,
     RoombaParticleFilter,
     get_goal_xy,
     wrap_to_pi,
+    ContinuousRoombaStateSpace,
+    DiscreteRoombaStateSpace,
     render
 
 include("line_segment_utils.jl")
