@@ -36,6 +36,9 @@ function ParticleFilters.resample(br::BumperResampler, b::WeightedParticleBelief
             @assert w == 0
         end
     end
+    if isempty(new) # no particles consistent with observations
+        return ParticleCollection(particles(b))
+    end
     extras = rand(rng, new, br.n-length(new))
     for p in extras
         push!(new, p)
