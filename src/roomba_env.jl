@@ -69,8 +69,8 @@ Define the Roomba MDP.
     goal_reward::Float64 = 10
     stairs_penalty::Float64 = -10
     config::Int = 1
-    room::Room  = Room(configuration=config)
     sspace::SS = ContinuousRoombaStateSpace()
+    room::Room  = Room(sspace,configuration=config)
     aspace::AS = RoombaActions()
     _amap::Union{Nothing, Dict{RoombaAct, Int}} = gen_amap(aspace)
 end
@@ -104,10 +104,18 @@ function DiscreteRoombaStateSpace(num_x_pts::Int, num_y_pts::Int, num_theta_pts:
     # hardcoded room-limits
     # watch for consistency with env_room
     XLIMS = [-30.0, 20.0]
-    YLIMS = [-30.0, 10.0] 
+    YLIMS = [-30.0, 20.0] 
 
-    return DiscreteRoombaStateSpace((XLIMS[2]-XLIMS[1])/(num_x_pts-1),
-                                    (YLIMS[2]-YLIMS[1])/(num_y_pts-1),
+    x_step = (XLIMS[2]-XLIMS[1])/(num_x_pts-1)
+    y_step = (YLIMS[2]-YLIMS[1])/(num_y_pts-1)
+
+    x_step == y_step ? nothing : throw(AssertionError("x_step must equal y_step."))
+
+    # project ROBOT_W.val/2 to nearest multiple of discrete_step
+    ROBOT_W.val = 2 * max(1, round(DEFAULT_ROBOT_W/2 / x_step)) * x_step
+
+    return DiscreteRoombaStateSpace(x_step,
+                                    y_step,
                                     2*pi/(num_theta_pts-1),
                                     XLIMS,YLIMS)
 end
@@ -425,7 +433,7 @@ function render(ctx::CairoContext, m::RoombaModel, step)
     env = mdp(m)
     state = step[:sp]
 
-    radius = ROBOT_W*6
+    radius = ROBOT_W.val*6
 
     # render particle filter belief
     if haskey(step, :bp)
@@ -451,7 +459,7 @@ function render(ctx::CairoContext, m::RoombaModel, step)
 
     # Draw line indicating orientation
     move_to(ctx, x, y)
-    end_point = [state[1] + ROBOT_W*cos(state[3])/2, state[2] + ROBOT_W*sin(state[3])/2]
+    end_point = [state[1] + ROBOT_W.val*cos(state[3])/2, state[2] + ROBOT_W.val*sin(state[3])/2]
     end_x, end_y = transform_coords(end_point)
     line_to(ctx, end_x, end_y)
     set_source_rgb(ctx, 0, 0, 0)

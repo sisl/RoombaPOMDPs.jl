@@ -3,7 +3,11 @@
 
 # Define constants  -- all units in m
 RW = 5. # room width
-ROBOT_W = 1. # robot width
+mutable struct ROBOT_W_struct
+    val::Float64 # robot width
+end
+DEFAULT_ROBOT_W = 1.0
+ROBOT_W = ROBOT_W_struct(DEFAULT_ROBOT_W)
 MARGIN = 1e-12
 
 # Define rectangle type for constructing hallway
@@ -49,20 +53,20 @@ mutable struct Rectangle
         retval.yl = corners[1, 2]
         retval.yu = corners[2, 2]
         if walls[1]
-            retval.width -= ROBOT_W/2
-            retval.xl += ROBOT_W/2
+            retval.width -= ROBOT_W.val/2
+            retval.xl += ROBOT_W.val/2
         end
         if walls[2]
-            retval.height -= ROBOT_W/2
-            retval.yu -= ROBOT_W/2
+            retval.height -= ROBOT_W.val/2
+            retval.yu -= ROBOT_W.val/2
         end
         if walls[3]
-            retval.width -= ROBOT_W/2
-            retval.xu -= ROBOT_W/2
+            retval.width -= ROBOT_W.val/2
+            retval.xu -= ROBOT_W.val/2
         end
         if walls[4]
-            retval.height -= ROBOT_W/2
-            retval.yl += ROBOT_W/2
+            retval.height -= ROBOT_W.val/2
+            retval.yl += ROBOT_W.val/2
         end
         @assert retval.width > 0.0 && retval.height > 0.0 "Negative width or height"
         retval.area = retval.width * retval.height
@@ -113,25 +117,25 @@ function wall_contact(rect::Rectangle, pos::AbstractVector{Float64})
 
     contacts = []
     contact_mags = []
-    if pos[1] - ROBOT_W/2 <= xlims[1] + MARGIN && rect.walls[1]
+    if pos[1] - ROBOT_W.val/2 <= xlims[1] + MARGIN && rect.walls[1]
         # in contact with left wall
         push!(contacts, 1)
-        push!(contact_mags, abs(pos[1] - ROBOT_W/2 - xlims[1]))
+        push!(contact_mags, abs(pos[1] - ROBOT_W.val/2 - xlims[1]))
     end
-    if pos[2] + ROBOT_W/2 + MARGIN >= ylims[2] && rect.walls[2]
+    if pos[2] + ROBOT_W.val/2 + MARGIN >= ylims[2] && rect.walls[2]
         # in contact with top wall
         push!(contacts, 2)
-        push!(contact_mags, abs(pos[2] + ROBOT_W/2 - ylims[2]))
+        push!(contact_mags, abs(pos[2] + ROBOT_W.val/2 - ylims[2]))
     end
-    if pos[1] + ROBOT_W/2 + MARGIN >= xlims[2] && rect.walls[3]
+    if pos[1] + ROBOT_W.val/2 + MARGIN >= xlims[2] && rect.walls[3]
         # in contact with right wall
         push!(contacts, 3)
-        push!(contact_mags, abs(pos[1] + ROBOT_W/2 - xlims[2]))
+        push!(contact_mags, abs(pos[1] + ROBOT_W.val/2 - xlims[2]))
     end
-    if pos[2] - ROBOT_W/2 <= ylims[1] + MARGIN && rect.walls[4]
+    if pos[2] - ROBOT_W.val/2 <= ylims[1] + MARGIN && rect.walls[4]
         # in contact with bottom wall
         push!(contacts, 4)
-        push!(contact_mags, abs(pos[2] - ROBOT_W/2 - ylims[1]))
+        push!(contact_mags, abs(pos[2] - ROBOT_W.val/2 - ylims[1]))
     end
 
     if length(contacts) == 0
@@ -143,7 +147,7 @@ end
 
 # Find closest distance to any wall
 function furthest_step(rect::Rectangle, pos::AbstractVector{Float64}, heading::AbstractVector{Float64})
-    return minimum(furthest_step(seg, pos, heading, ROBOT_W/2) for seg in rect.segments)
+    return minimum(furthest_step(seg, pos, heading, ROBOT_W.val/2) for seg in rect.segments)
 end
 
 # computes the length of a ray from robot center to closest segment 
@@ -159,6 +163,23 @@ function render(rect::Rectangle, ctx::CairoContext)
     end
 end
 
+# round corners to discretized coordinates if necessary
+function round_corners(sspace, corners)
+
+    if sspace isa DiscreteRoombaStateSpace
+        for i in 1:4
+            xi = floor(Int, (corners[i,1] - sspace.XLIMS[1]) / sspace.x_step + 0.5) + 1
+            yi = floor(Int, (corners[i,2] - sspace.YLIMS[1]) / sspace.y_step + 0.5) + 1
+            corners[i,1] = sspace.XLIMS[1] + (xi-1) * sspace.x_step
+            corners[i,2] = sspace.YLIMS[1] + (yi-1) * sspace.y_step
+        end
+    end
+    return corners
+
+
+
+end
+
 # generate consecutive rectangles that make up the room
 # all rectangles share a full "wall" with an adjacent rectangle
 # shared walls are not solid - just used to specify geometry
@@ -170,7 +191,7 @@ mutable struct Room
     stair_rect::Int # Index of rectangle with stairs
     stair_wall::Int # Index of wall that leads to stairs
 
-    function Room(; configuration=1)
+    function Room(sspace; configuration=1)
 
         retval = new()
 
@@ -200,22 +221,22 @@ mutable struct Room
         rectangles = []
 
         # Rectangle 1
-        corners = [[-20-RW -20]; [-20-RW 0-RW]; [-20+RW 0-RW]; [-20+RW -20]]
+        corners = round_corners(sspace,[[-20-RW -20]; [-20-RW 0-RW]; [-20+RW 0-RW]; [-20+RW -20]])
         walls = [true, false, true, true] # top wall shared
         push!(rectangles, Rectangle(corners, walls, goal_idx=goal_idxs[1], stair_idx=stair_idxs[1]))
 
         # Rectangle 2
-        corners = [[-20-RW 0-RW]; [-20-RW 0+RW]; [-20+RW 0+RW]; [-20+RW 0-RW]]
+        corners = round_corners(sspace,[[-20-RW 0-RW]; [-20-RW 0+RW]; [-20+RW 0+RW]; [-20+RW 0-RW]])
         walls = [true, true, false, false] # bottom, right wall shared
         push!(rectangles, Rectangle(corners, walls, goal_idx=goal_idxs[2], stair_idx=stair_idxs[2]))
 
         # Rectangle 3
-        corners = [[-20+RW 0-RW]; [-20+RW 0+RW]; [10 0+RW]; [10 0-RW]]
+        corners = round_corners(sspace,[[-20+RW 0-RW]; [-20+RW 0+RW]; [10 0+RW]; [10 0-RW]])
         walls = [false, true, false, true] # left wall shared
         push!(rectangles, Rectangle(corners, walls, goal_idx=goal_idxs[3], stair_idx=stair_idxs[3]))
 
         # Rectangle 4
-        corners = [[10 0-RW]; [10 0+RW]; [10+RW 0+RW]; [10+RW 0-RW]]
+        corners = round_corners(sspace,[[10 0-RW]; [10 0+RW]; [10+RW 0+RW]; [10+RW 0-RW]])
         walls = [false, true, true, true] # left wall shared
         push!(rectangles, Rectangle(corners, walls, goal_idx=goal_idxs[4], stair_idx=stair_idxs[4]))
 
