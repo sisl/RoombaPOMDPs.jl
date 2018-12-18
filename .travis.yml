@@ -6,6 +6,11 @@ os:
 julia:
   - 1.0
 
+addons:
+  apt:
+    packages:
+      - libgtk-3-dev
+
 notifications:
   email: false
 script:
