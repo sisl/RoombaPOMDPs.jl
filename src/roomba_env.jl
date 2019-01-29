@@ -467,11 +467,28 @@ function render(ctx::CairoContext, m::RoombaModel, step)
     return ctx
 end
 
-function render(m::RoombaModel, step)
-    io = IOBuffer()
+# this object should have show methods for a variety of mimes
+# in particular, for now it has both png and html-like
+# it would also give us a ton of hacker cred to make an ascii rendering
+struct RoombaVis
+    m::RoombaModel
+    step::Any
+    text::String
+end
+
+render(m::RoombaModel, step; text::String="") = RoombaVis(m, step, text)
+
+function Base.show(io::IO, mime::Union{MIME"text/html", MIME"image/svg+xml"}, v::RoombaVis)
     c = CairoSVGSurface(io, 800, 600)
     ctx = CairoContext(c)
-    render(ctx, m, step)
+    render(ctx, v.m, v.step)
     finish(c)
-    return HTML(String(take!(io)))
+end
+
+function Base.show(io::IO, mime::MIME"image/png", v::RoombaVis)
+    c = CairoRGBSurface(800, 600)
+    ctx = CairoContext(c)
+    render(ctx, v.m, v.step)
+    # finish(c) # doesn't work with this; I wonder why
+    write_to_png(c, io)
 end
