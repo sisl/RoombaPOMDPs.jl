@@ -8,6 +8,7 @@ using POMDPSimulators
 using Cairo
 using Gtk
 using Random
+using Test
 
 sensor = Lidar() # or Bumper() for the bumper version of the environment
 config = 3 # 1,2, or 3
@@ -74,5 +75,18 @@ Random.seed!(0)
 p = ToEnd(0)
 
 for step in stepthrough(m,p,belief_updater, max_steps=100)
+    @show step.a
+end
 
+step = first(stepthrough(m,p,belief_updater, max_steps=100))
+
+@show fbase = tempname()
+
+v = render(m, step)
+for (ext, mime) in ["html"=>MIME("text/html"), "svg"=>MIME("image/svg+xml"), "png"=>MIME("image/png")]
+    fname = fbase*"."*ext
+    open(fname, "w") do f
+        show(f, mime, v)
+    end
+    @test filesize(fname) > 0
 end
