@@ -248,8 +248,9 @@ mutable struct Room
 end
 
 # Sample from multinomial distribution
-function multinomial_sample(p::AbstractVector{Float64})
-    rand_num = rand()
+# eventually this should be replaced with categorical
+function multinomial_sample(p::AbstractVector{Float64}, rng::AbstractRNG)
+    rand_num = rand(rng)
     for i = 1:length(p)
         if rand_num < sum(p[1:i])
             return i
@@ -261,7 +262,7 @@ end
 # Randomly select a rectangle weighted by initializable area
 function init_pos(r::Room, rng::AbstractRNG)
     norm_areas = r.areas/sum(r.areas)
-    rect = multinomial_sample(norm_areas)
+    rect = multinomial_sample(norm_areas, rng)
     return init_pos(r.rectangles[rect], rng)
 end
 
