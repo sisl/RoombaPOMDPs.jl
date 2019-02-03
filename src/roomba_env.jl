@@ -210,7 +210,7 @@ end
 function POMDPs.initialstate(m::RoombaModel, rng::AbstractRNG)
     e = mdp(m)
     x, y = init_pos(e.room, rng)
-    th = rand() * 2*pi - pi
+    th = rand(rng) * 2*pi - pi
 
     is = RoombaState(x, y, th, 0.0)
 
