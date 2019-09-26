@@ -48,5 +48,3 @@ In case changes are made later, please do not modify any of the scripts in the `
 If you would like to add additional packages or run files from terminal, please follow the procedure below.
 In julia, first enter the package manager by hitting the ```]``` key. Then activate the AA228FinalProject environment by following the instructions in the Installation section. Packages you now add will be added to the AA228FinalProject environment, and if you exit the package manager (by pressing backspace), the code you run while the environment is activated will have access to all packages specified in the ```Project.toml``` file.
 
-## Contact
-If you have questions, first check the FAQ section on course webpage [here](https://web.stanford.edu/class/aa228/cgi-bin/wp/optional-final-project-escape-roomba), and post on the course Piazza in the ```optional_final_project``` folder if your question is unanswered.
