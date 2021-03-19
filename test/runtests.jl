@@ -15,16 +15,10 @@ config = 3 # 1,2, or 3
 m = RoombaPOMDP(sensor=sensor, mdp=RoombaMDP(config=config));
 
 num_particles = 2000
-resampler = LidarResampler(num_particles, LowVarianceResampler(num_particles))
-# for the bumper environment
-# resampler = BumperResampler(num_particles)
-
-spf = SimpleParticleFilter(m, resampler)
-
 v_noise_coefficient = 2.0
 om_noise_coefficient = 0.5
 
-belief_updater = RoombaParticleFilter(spf, v_noise_coefficient, om_noise_coefficient);
+belief_updater = RoombaParticleFilter(m, num_particles, v_noise_coefficient, om_noise_coefficient)
 
 # Define the policy to test
 mutable struct ToEnd <: Policy

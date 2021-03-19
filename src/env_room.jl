@@ -2,13 +2,12 @@
 # maintained by {jmorton2,kmenda}@stanford.edu
 
 # Define constants  -- all units in m
-RW = 5. # room width
+const RW = 5. # room width
 mutable struct ROBOT_W_struct
     val::Float64 # robot width
 end
-DEFAULT_ROBOT_W = 1.0
-ROBOT_W = ROBOT_W_struct(DEFAULT_ROBOT_W)
-MARGIN = 1e-12
+const DEFAULT_ROBOT_W = 1.0
+const ROBOT_W = ROBOT_W_struct(DEFAULT_ROBOT_W)
 
 # Define rectangle type for constructing hallway
 # corners: 4x2 np array specifying
@@ -23,7 +22,7 @@ mutable struct Rectangle
     segments::Array{LineSegment, 1}
     width::Float64
     height::Float64
-    midpoint::Array{Float64, 1}
+    midpoint::SVec2
     area::Float64
     xl::Float64
     xu::Float64
@@ -45,7 +44,7 @@ mutable struct Rectangle
         retval.width = corners[3, 1] - corners[2, 1]
         retval.height = corners[2, 2] - corners[1, 2]
         mean_vals = mean(corners, dims=1)
-        retval.midpoint = SVector(mean_vals[1, 1], mean_vals[1, 2])
+        retval.midpoint = SVec2(mean_vals[1, 1], mean_vals[1, 2])
         
         # compute area in which robot could be initialized
         retval.xl = corners[2, 1]
@@ -84,16 +83,14 @@ end
 function init_pos(rect::Rectangle, rng)
     w = rect.xu - rect.xl
     h = rect.yu - rect.yl
-    init_pos = SVector(rand(rng)*w + rect.xl, rand(rng)*h + rect.yl)
-    
-    init_pos
+    return SVec2(rand(rng)*w + rect.xl, rand(rng)*h + rect.yl)
 end
 
 # Determines if pos (center of robot) is within the rectangle
-function in_rectangle(rect::Rectangle, pos::AbstractVector{Float64})
+function in_rectangle(rect::Rectangle, pos::SVec2)
     corners = rect.corners
-    xlims = SVector(rect.xl - MARGIN, rect.xu + MARGIN)
-    ylims = SVector(rect.yl - MARGIN, rect.yu + MARGIN)
+    xlims = SVec2(rect.xl - MARGIN, rect.xu + MARGIN)
+    ylims = SVec2(rect.yl - MARGIN, rect.yu + MARGIN)
     if xlims[1] < pos[1] < xlims[2]
         if ylims[1] < pos[2] < ylims[2]
             return true
@@ -107,53 +104,75 @@ end
 #          -1, -Inf if not in wall contact
 #          0~3, violation mag, indicating which wall has contact
 #          if multiple, returns largest violation
-function wall_contact(rect::Rectangle, pos::AbstractVector{Float64})
+function wall_contact(rect::Rectangle, pos::SVec2)
     if !(in_rectangle(rect, pos))
         return -2, -Inf
     end
     corners = rect.corners
-    xlims = SVector(corners[2, 1], corners[3, 1])
-    ylims = SVector(corners[1, 2], corners[2, 2])
+    xlims = SVec2(corners[2, 1], corners[3, 1])
+    ylims = SVec2(corners[1, 2], corners[2, 2])
 
-    contacts = []
-    contact_mags = []
+    contact = -1
+    contact_mag = -Inf
     if pos[1] - ROBOT_W.val/2 <= xlims[1] + MARGIN && rect.walls[1]
         # in contact with left wall
-        push!(contacts, 1)
-        push!(contact_mags, abs(pos[1] - ROBOT_W.val/2 - xlims[1]))
+        new_contact_mag = abs(pos[1] - ROBOT_W.val/2 - xlims[1])
+        if new_contact_mag > contact_mag
+            contact_mag = new_contact_mag
+            contact = 1
+        end
     end
     if pos[2] + ROBOT_W.val/2 + MARGIN >= ylims[2] && rect.walls[2]
         # in contact with top wall
-        push!(contacts, 2)
-        push!(contact_mags, abs(pos[2] + ROBOT_W.val/2 - ylims[2]))
+        new_contact_mag = abs(pos[2] - ROBOT_W.val/2 - xlims[2])
+        if new_contact_mag > contact_mag
+            contact_mag = new_contact_mag
+            contact = 2
+        end
     end
     if pos[1] + ROBOT_W.val/2 + MARGIN >= xlims[2] && rect.walls[3]
         # in contact with right wall
-        push!(contacts, 3)
-        push!(contact_mags, abs(pos[1] + ROBOT_W.val/2 - xlims[2]))
+        new_contact_mag = abs(pos[1] - ROBOT_W.val/2 - xlims[2])
+        if new_contact_mag > contact_mag
+            contact_mag = new_contact_mag
+            contact = 3
+        end
     end
     if pos[2] - ROBOT_W.val/2 <= ylims[1] + MARGIN && rect.walls[4]
         # in contact with bottom wall
-        push!(contacts, 4)
-        push!(contact_mags, abs(pos[2] - ROBOT_W.val/2 - ylims[1]))
+        new_contact_mag = abs(pos[2] - ROBOT_W.val/2 - xlims[1])
+        if new_contact_mag > contact_mag
+            contact_mag = new_contact_mag
+            contact = 4
+        end
     end
 
-    if length(contacts) == 0
-        return -1, -Inf
-    else
-        return contacts[argmax(contact_mags)], maximum(contact_mags)
-    end
+    return contact, contact_mag
 end
 
 # Find closest distance to any wall
-function furthest_step(rect::Rectangle, pos::AbstractVector{Float64}, heading::AbstractVector{Float64})
-    return minimum(furthest_step(seg, pos, heading, ROBOT_W.val/2) for seg in rect.segments)
+function furthest_step(rect::Rectangle, pos::SVec2, heading::SVec2)
+    fs = Inf
+    for seg in rect.segments
+        new_fs = furthest_step(seg, pos, heading, ROBOT_W.val/2)
+        if new_fs < fs
+            fs = new_fs
+        end
+    end
+    return fs
 end
 
 # computes the length of a ray from robot center to closest segment 
 # from p0 pointing in direction heading
-function ray_length(rect::Rectangle, pos::AbstractVector{Float64}, heading::AbstractVector{Float64})
-    return minimum(ray_length(seg, pos, heading) for seg in rect.segments)
+function ray_length(rect::Rectangle, pos::SVec2, heading::SVec2)
+    rl = Inf
+    for seg in rect.segments
+        new_rl = ray_length(seg, pos, heading)
+        if new_rl < rl
+            rl = new_rl
+        end
+    end
+    return rl
 end
 
 # Render rectangle based on segments
@@ -175,9 +194,6 @@ function round_corners(sspace, corners)
         end
     end
     return corners
-
-
-
 end
 
 # generate consecutive rectangles that make up the room
@@ -268,7 +284,7 @@ end
 
 # Determines if pos is in contact with a wall
 # returns bool indicating contact
-function wall_contact(r::Room, pos::AbstractVector{Float64})
+function wall_contact(r::Room, pos::SVec2)
     for (i, rect) in enumerate(r.rectangles)
         wc, _ = wall_contact(rect, pos)
         if wc >= 0
@@ -280,20 +296,30 @@ end
 
 # Determines if pos is in contact with a specific wall
 # returns true if true
-function contact_wall(r::Rectangle, wall::Int, pos::Array{Float64, 1})
+function contact_wall(r::Rectangle, wall::Int, pos::SVec2)
     wc,_ = wall_contact(r, pos)
     return wc == wall
 end    
 
 # Determines if pos (center of robot) is within the room
-function in_room(r::Room, pos::AbstractVector{Float64})
-    return any([in_rectangle(rect, pos) for rect in r.rectangles])
+function in_room(r::Room, pos::SVec2)
+    for rect in r.rectangles
+        if in_rectangle(rect, pos)
+            return true
+        end
+    end
+    return false
 end 
 
 # Attempts to translate from pos0 in direction heading for des_step without violating boundaries
-function legal_translate(r::Room, pos0::AbstractVector{Float64}, heading::AbstractVector{Float64}, des_step::Float64)
-    fs = minimum(furthest_step(rect, pos0, heading) for rect in r.rectangles)
-    fs = min(des_step, fs)
+function legal_translate(r::Room, pos0::SVec2, heading::SVec2, des_step::Float64)
+    fs = des_step
+    for rect in r.rectangles
+        new_fs = furthest_step(rect, pos0, heading)
+        if new_fs < fs
+            fs = new_fs
+        end
+    end
     pos1 = pos0 + fs*heading
     if !in_room(r, pos1)
         return pos0
@@ -308,8 +334,15 @@ end
 #         heading: array specifying heading unit vector
 #         R: robot radius [m]
 # outputs: ray_length [m]
-function ray_length(r::Room, pos0::AbstractVector{Float64}, heading::AbstractVector{Float64})
-    return minimum(ray_length(rect, pos0, heading) for rect in r.rectangles)
+function ray_length(r::Room, pos0::SVec2, heading::SVec2)
+    rl = Inf
+    for rect in r.rectangles
+        new_rl = ray_length(rect, pos0, heading)
+        if new_rl < rl
+            rl = new_rl
+        end
+    end
+    return rl
 end
 
 # Render room based on individual rectangles
