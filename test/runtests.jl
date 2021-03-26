@@ -2,7 +2,6 @@
 using AA228FinalProject
 using POMDPs
 using POMDPPolicies
-using BeliefUpdaters
 using ParticleFilters
 using POMDPSimulators
 using Cairo
