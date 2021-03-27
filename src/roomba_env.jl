@@ -18,7 +18,7 @@ State of a Roomba.
 - `x::Float64` x location in meters
 - `y::Float64` y location in meters
 - `theta::Float64` orientation in radians
-- `status::Bool` indicator whether robot has reached goal state or stairs
+- `status::Float64` indicator whether robot has reached goal state or stairs
 """
 struct RoombaState <: FieldVector{4, Float64}
     x::Float64
@@ -60,24 +60,32 @@ Define the Roomba MDP.
 - `sspace::SS` environment state-space (ContinuousRoombaStateSpace or DiscreteRoombaStateSpace)
 - `aspace::AS` environment action-space struct
 """
-@with_kw mutable struct RoombaMDP{SS,AS} <: MDP{RoombaState, RoombaAct}
-    v_max::Float64  = 10.0  # m/s
-    om_max::Float64 = 1.0   # rad/s
-    dt::Float64     = 0.5   # s
-    contact_pen::Float64 = -1.0 
-    time_pen::Float64 = -0.1
-    goal_reward::Float64 = 10
-    stairs_penalty::Float64 = -10
-    discount::Float64 = 0.95
-    config::Int = 1
-    sspace::SS = ContinuousRoombaStateSpace()
-    room::Room  = Room(sspace,configuration=config)
-    aspace::AS = RoombaActions()
-    _amap::Union{Nothing, Dict{RoombaAct, Int}} = gen_amap(aspace)
+mutable struct RoombaMDP{SS, AS, S} <: MDP{S, RoombaAct}
+    v_max::Float64
+    om_max::Float64
+    dt::Float64
+    contact_pen::Float64
+    time_pen::Float64
+    goal_reward::Float64
+    stairs_penalty::Float64
+    discount::Float64
+    config::Int
+    sspace::SS
+    room::Room
+    aspace::AS
+    _amap::Union{Nothing, Dict{RoombaAct, Int}}
+end
+
+function RoombaMDP(;v_max=2.0, om_max=1.0, dt=0.5, contact_pen=-1.0, time_pen=-0.1, goal_reward=10.0, stairs_penalty=-10.0,
+                    discount=0.95, config=1, sspace::SS=ContinuousRoombaStateSpace(), room=Room(sspace, configuration=config),
+                    aspace::AS=RoombaActions(), _amap=gen_amap(aspace)) where {SS, AS}
+        RoombaMDP{SS, AS, eltype(SS)}(v_max, om_max, dt, contact_pen, time_pen, goal_reward, stairs_penalty, discount, config,
+                                        sspace, room, aspace, _amap)
 end
 
 # state-space definitions
 struct ContinuousRoombaStateSpace end
+Base.eltype(sspace::Type{ContinuousRoombaStateSpace}) = RoombaState
 
 """
 Specify a DiscreteRoombaStateSpace
@@ -94,24 +102,28 @@ struct DiscreteRoombaStateSpace
     th_step::Float64
     XLIMS::SVector{2, Float64}
     YLIMS::SVector{2, Float64}
-    indices::SVector{3, Int}
+    indices::SVector{2, Int}
+    states_num::Int
 end
 
 # function to construct DiscreteRoombaStateSpace:
 # `num_x_pts::Int` number of points to discretize x range to
-# `num_y_pts::Int` number of points to discretize yrange to
+# `num_y_pts::Int` number of points to discretize y range to
 # `num_th_pts::Int` number of points to discretize th range to
 function DiscreteRoombaStateSpace(num_x_pts::Int, num_y_pts::Int, num_theta_pts::Int)
 
     # hardcoded room-limits
     # watch for consistency with env_room
-    XLIMS = SVec2(-30.0, 20.0)
-    YLIMS = SVec2(-30.0, 20.0)
+    XLIMS = SVec2(-25.0, 15.0)
+    YLIMS = SVec2(-20.0, 5.0)
 
     x_step = (XLIMS[2]-XLIMS[1])/(num_x_pts-1)
     y_step = (YLIMS[2]-YLIMS[1])/(num_y_pts-1)
 
-    x_step == y_step ? nothing : throw(AssertionError("x_step must equal y_step."))
+    if x_step != y_step
+        @show x_step, y_step
+        throw(AssertionError("x_step must equal y_step. In other word, (num_x_pts-1) should equal to 8/5(num_y_pts-1)."))
+    end
 
     # project ROBOT_W.val/2 to nearest multiple of discrete_step
     ROBOT_W.val = 2 * max(1, round(DEFAULT_ROBOT_W/2 / x_step)) * x_step
@@ -120,11 +132,23 @@ function DiscreteRoombaStateSpace(num_x_pts::Int, num_y_pts::Int, num_theta_pts:
                                     y_step,
                                     2*pi/(num_theta_pts-1),
                                     XLIMS,YLIMS,
-                                    cumprod([num_x_pts, num_y_pts, num_theta_pts]))
+                                    SVector{2, Int}(num_x_pts, num_x_pts * num_y_pts),
+                                    num_x_pts*num_y_pts*num_theta_pts+2)
 end
 
+Base.eltype(sspace::Type{DiscreteRoombaStateSpace}) = Int
 
-
+# round corners to discretized coordinates if necessary
+round_corners(sspace::ContinuousRoombaStateSpace, corners) = corners
+function round_corners(sspace::DiscreteRoombaStateSpace, corners)
+    for i in 1:4
+        xi = floor(Int, (corners[i,1] - sspace.XLIMS[1]) / sspace.x_step + 0.5)
+        yi = floor(Int, (corners[i,2] - sspace.YLIMS[1]) / sspace.y_step + 0.5)
+        corners[i,1] = sspace.XLIMS[1] + xi * sspace.x_step
+        corners[i,2] = sspace.YLIMS[1] + yi * sspace.y_step
+    end
+    return corners
+end
 
 """
 Define the Roomba POMDP
@@ -133,9 +157,9 @@ Fields:
 - `sensor::T` struct specifying the sensor used (Lidar or Bump)
 - `mdp::T` underlying RoombaMDP
 """
-struct RoombaPOMDP{SS, AS, T, O} <: POMDP{RoombaState, RoombaAct, O}
+struct RoombaPOMDP{SS, AS, S, T, O} <: POMDP{S, RoombaAct, O}
     sensor::T
-    mdp::RoombaMDP{SS, AS}
+    mdp::RoombaMDP{SS, AS, S}
 end
 
 sensor(m::RoombaPOMDP) = m.sensor
@@ -166,9 +190,9 @@ DiscreteLidar(disc_points) = DiscreteLidar(Lidar().ray_stdev, disc_points, Vecto
 
 # Shorthands
 const RoombaModel{SS, AS} = Union{RoombaMDP{SS, AS}, RoombaPOMDP{SS, AS}}
-const BumperPOMDP{SS, AS} = RoombaPOMDP{SS, AS, Bumper, Bool}
-const LidarPOMDP{SS, AS} = RoombaPOMDP{SS, AS, Lidar, Float64}
-const DiscreteLidarPOMDP{SS, AS} = RoombaPOMDP{SS, AS, DiscreteLidar, Int}
+const BumperPOMDP{SS, AS, S} = RoombaPOMDP{SS, AS, S, Bumper, Bool}
+const LidarPOMDP{SS, AS, S} = RoombaPOMDP{SS, AS, S, Lidar, Float64}
+const DiscreteLidarPOMDP{SS, AS, S} = RoombaPOMDP{SS, AS, S, DiscreteLidar, Int}
 
 # access the mdp of a RoombaModel
 mdp(e::RoombaMDP) = e
@@ -183,8 +207,8 @@ sspace(m::RoombaMDP{SS}) where SS = m.sspace
 sspace(m::RoombaPOMDP{SS}) where SS = sspace(m.mdp)
 
 # RoombaPOMDP Constructor
-function RoombaPOMDP(sensor, mdp::RoombaMDP{SS,AS}) where {SS, AS}
-    RoombaPOMDP{SS, AS, typeof(sensor), obstype(sensor)}(sensor, mdp)
+function RoombaPOMDP(sensor, mdp::RoombaMDP{SS, AS, S}) where {SS, AS, S}
+    RoombaPOMDP{SS, AS, S, typeof(sensor), obstype(sensor)}(sensor, mdp)
 end
 
 RoombaPOMDP(;sensor=Bumper(), mdp=RoombaMDP()) = RoombaPOMDP(sensor,mdp)
@@ -196,13 +220,11 @@ POMDPs.actions(m::RoombaModel) = mdp(m).aspace
 n_actions(m::RoombaModel) = length(mdp(m).aspace)
 
 # maps a RoombaAct to an index in a RoombaModel with discrete actions
-function POMDPs.actionindex(m::RoombaModel, a::RoombaAct)
-    if mdp(m)._amap !== nothing
-        return mdp(m)._amap[a]
-    else
-        error("Action index not defined for continuous actions.")
-    end
+function POMDPs.actionindex(m::RoombaModel{SS, AS}, a::RoombaAct) where {SS, AS <: RoombaActions}
+    error("Action index not defined for continuous actions.")
 end
+
+POMDPs.actionindex(m::RoombaModel, a::RoombaAct) = mdp(m)._amap[a]
 
 # function to get goal xy location for heuristic controllers
 function get_goal_xy(m::RoombaModel)
@@ -218,14 +240,9 @@ function get_goal_xy(m::RoombaModel)
 end
 
 # transition Roomba state given curent state and action
-POMDPs.transition(m::RoombaPOMDP, s::RoombaState, a::RoombaAct) = transition(m.mdp, s, a)
-POMDPs.transition(m::RoombaMDP{SS}, s::RoombaState, a::RoombaAct) where SS <: ContinuousRoombaStateSpace = Deterministic(get_next_state(m, s, a))
-
-function POMDPs.transition(m::RoombaMDP{SS}, s::RoombaState, a::RoombaAct) where SS <: DiscreteRoombaStateSpace
-    # round the states to nearest grid point
-    si = stateindex(m, get_next_state(m, s, a))
-    return Deterministic(index_to_state(m, si))
-end
+POMDPs.transition(m::RoombaPOMDP, s, a::RoombaAct) = transition(m.mdp, s, a)
+POMDPs.transition(m::RoombaMDP, s::RoombaState, a::RoombaAct) = Deterministic(get_next_state(m, s, a))
+POMDPs.transition(m::RoombaMDP, s::Int, a::RoombaAct) = Deterministic(convert_s(Int, get_next_state(m, convert_s(RoombaState, s, m), a), m))
 
 function get_next_state(m::RoombaMDP, s::RoombaState, a::RoombaAct)
     v, om = a
@@ -253,68 +270,60 @@ function get_next_state(m::RoombaMDP, s::RoombaState, a::RoombaAct)
     swn = r.stair_wall
     gr = r.rectangles[grn]
     sr = r.rectangles[srn]
-    next_status = 1.0*contact_wall(gr, gwn, SVec2(next_x, next_y)) - 1.0*contact_wall(sr, swn, SVec2(next_x, next_y))
+    next_status = 1.0 * contact_wall(gr, gwn, SVec2(next_x, next_y)) - 1.0 * contact_wall(sr, swn, SVec2(next_x, next_y))
 
     # define next state
     return RoombaState(next_x, next_y, next_th, next_status)
 end
 
 # enumerate all possible states in a DiscreteRoombaStateSpace
-function POMDPs.states(m::RoombaModel{SS}) where SS <: DiscreteRoombaStateSpace
-    ss = sspace(m)
-    x_states = range(ss.XLIMS[1], stop=ss.XLIMS[2], step=ss.x_step)
-    y_states = range(ss.YLIMS[1], stop=ss.YLIMS[2], step=ss.y_step)
-    th_states = range(-pi, stop=pi, step=ss.th_step)
-    statuses = [-1.,0.,1.]
-    return vec(collect(RoombaState(x,y,th,st) for x in x_states, y in y_states, th in th_states, st in statuses))
-end
-
+POMDPs.states(m::RoombaModel{SS}) where SS <: DiscreteRoombaStateSpace = vec(1:n_states(m))
 POMDPs.states(m::RoombaModel{SS}) where SS <: ContinuousRoombaStateSpace = sspace(m)
 
 # return the number of states in a DiscreteRoombaStateSpace
-function n_states(m::RoombaModel{SS}) where SS <: DiscreteRoombaStateSpace
-    ss = sspace(m)
-    return prod((convert(Int, diff(ss.XLIMS)[1]/ss.x_step)+1, 
-                        convert(Int, diff(ss.YLIMS)[1]/ss.y_step)+1,
-                        round(Int, 2*pi/ss.th_step)+1,
-                        3))
-end
+n_states(m::RoombaModel{SS}) where SS <: DiscreteRoombaStateSpace = sspace(m).states_num
 
 function n_states(m::RoombaModel{SS}) where SS <: ContinuousRoombaStateSpace
     error("State-space must be DiscreteRoombaStateSpace.")
 end
 
 # map a RoombaState to an index in a DiscreteRoombaStateSpace
-function POMDPs.stateindex(m::RoombaModel{SS}, s::RoombaState) where SS <: DiscreteRoombaStateSpace
-    ss = sspace(m)
-    xind = floor(Int, (s[1] - ss.XLIMS[1]) / ss.x_step + 0.5) + 1
-    yind = floor(Int, (s[2] - ss.YLIMS[1]) / ss.y_step + 0.5)
-    thind = floor(Int, (s[3] - (-pi)) / ss.th_step + 0.5)
-    stind = convert(Int, s[4]) + 1
-    xind + ss.indices[1] * yind + ss.indices[2] * thind + ss.indices[3] * stind
-end
-
+POMDPs.stateindex(m::RoombaModel{SS}, si::Int) where SS <: DiscreteRoombaStateSpace = si
 function POMDPs.stateindex(m::RoombaModel{SS}, s::RoombaState) where SS <: ContinuousRoombaStateSpace
     error("State-space must be DiscreteRoombaStateSpace.")
 end
 
 # map an index in a DiscreteRoombaStateSpace to the corresponding RoombaState
-function index_to_state(m::RoombaModel{SS}, si::Int) where SS <: DiscreteRoombaStateSpace
+function POMDPs.convert_s(::Type{Int}, s::RoombaState, m::RoombaModel{SS}) where SS <: DiscreteRoombaStateSpace
     ss = sspace(m)
-    sti, si = divrem(si, ss.indices[3])
-    thi, si = divrem(si, ss.indices[2])
-    yi, xi = divrem(si, ss.indices[1])
-
-    x = ss.XLIMS[1] + (xi-1) * ss.x_step
-    y = ss.YLIMS[1] + yi * ss.y_step
-    th = -pi + thi * ss.th_step
-    st = sti - 1
-
-    return RoombaState(x,y,th,st)
+    if s.status > 0.0
+        return ss.states_num
+    elseif s.status < 0.0
+        return ss.states_num - 1
+    else
+        xind = floor(Int, (s[1] - ss.XLIMS[1]) / ss.x_step + 0.5)
+        yind = floor(Int, (s[2] - ss.YLIMS[1]) / ss.y_step + 0.5)
+        thind = floor(Int, (s[3] - (-pi)) / ss.th_step + 0.5)
+        return 1 + xind + ss.indices[1] * yind + ss.indices[2] * thind
+    end
 end
 
-function index_to_state(m::RoombaModel{SS}, si::Int) where SS <: ContinuousRoombaStateSpace
-    error("State-space must be DiscreteRoombaStateSpace.")
+# map an index in a DiscreteRoombaStateSpace to the corresponding RoombaState
+function POMDPs.convert_s(::Type{RoombaState}, si::Int, m::RoombaModel{SS}) where SS <: DiscreteRoombaStateSpace
+    ss = sspace(m)
+    if si == ss.states_num
+        return RoombaState(0.0, 0.0, 0.0, 1.0)
+    elseif si == ss.states_num - 1
+        return RoombaState(0.0, 0.0, 0.0, -1.0)
+    else
+        si -= 1
+        thi, si = divrem(si, ss.indices[2])
+        yi, xi = divrem(si, ss.indices[1])
+        x = ss.XLIMS[1] + xi * ss.x_step
+        y = ss.YLIMS[1] + yi * ss.y_step
+        th = -pi + thi * ss.th_step
+        return RoombaState(x, y, th, 0.0)
+    end
 end
 
 # defines reward function R(s,a,s')
@@ -340,18 +349,19 @@ function POMDPs.reward(m::RoombaModel,
     return cum_reward  
 end
 
+POMDPs.reward(m::RoombaModel, si::Int, a::RoombaAct, spi::Int) = reward(m, convert_s(RoombaState, si, m), a, convert_s(RoombaState, spi, m))
+
 # determine if a terminal state has been reached
 POMDPs.isterminal(m::RoombaModel, s::RoombaState) = abs(s.status) > 0.0
+POMDPs.isterminal(m::RoombaModel, s::Int) = n_states(m) - s < 2
 
 # Bumper POMDP observation
-function POMDPs.observation(m::BumperPOMDP, 
-                            a::RoombaAct,
-                            sp::RoombaState)
-    return Deterministic(wall_contact(m, sp)) # in {0.0,1.0}
-end
+POMDPs.observation(m::BumperPOMDP, sp::RoombaState) = Deterministic(wall_contact(m, sp)) # in {false,true}
+POMDPs.observation(m::BumperPOMDP, sp::Int) = observation(m, convert_s(RoombaState, sp, m))
 
 n_observations(m::BumperPOMDP) = 2
 POMDPs.observations(m::BumperPOMDP) = [false, true]
+POMDPs.obsindex(m::BumperPOMDP, o::Bool) = o + 1
 
 # Lidar POMDP observation
 function lidar_obs_distribution(m::RoombaMDP, ray_stdev::Float64, sp::RoombaState)
@@ -364,7 +374,8 @@ function lidar_obs_distribution(m::RoombaMDP, ray_stdev::Float64, sp::RoombaStat
     return Truncated(Normal(rl, sigma), 0.0, Inf)
 end
 
-POMDPs.observation(m::LidarPOMDP, a::RoombaAct, sp::RoombaState) = lidar_obs_distribution(mdp(m), sensor(m).ray_stdev, sp)
+POMDPs.observation(m::LidarPOMDP, sp::RoombaState) = lidar_obs_distribution(mdp(m), sensor(m).ray_stdev, sp)
+POMDPs.observation(m::LidarPOMDP, sp::Int) = observation(m, convert_s(RoombaState, sp, m))
 
 function n_observations(m::LidarPOMDP)
     error("n_observations not defined for continuous observations.")
@@ -375,10 +386,7 @@ function POMDPs.observations(m::LidarPOMDP)
 end
 
 # DiscreteLidar POMDP observation
-function POMDPs.observation(m::DiscreteLidarPOMDP{SS, AS}, 
-                            a::AbstractVector{Float64},
-                            sp::AbstractVector{Float64}) where {SS, AS}
-
+function POMDPs.observation(m::DiscreteLidarPOMDP, sp::RoombaState)
     s = sensor(m)
     d = lidar_obs_distribution(mdp(m), s.ray_stdev, sp)
 
@@ -395,8 +403,11 @@ function POMDPs.observation(m::DiscreteLidarPOMDP{SS, AS},
     return SparseCat(1:length(d_disc), d_disc)
 end
 
+POMDPs.observation(m::DiscreteLidarPOMDP, sp::Int) = observation(m, convert_s(RoombaState, sp, m))
+
 n_observations(m::DiscreteLidarPOMDP) = length(sensor(m).disc_points) + 1
 POMDPs.observations(m::DiscreteLidarPOMDP) = vec(1:n_observations(m))
+POMDPs.obsindex(m::DiscreteLidarPOMDP, o::Int) = o
                         
 # define discount factor
 POMDPs.discount(m::RoombaModel) = mdp(m).discount
@@ -407,21 +418,23 @@ struct RoombaInitialDistribution{M<:RoombaModel}
 end
 
 # definition of initialstate for Roomba environment
-POMDPs.initialstate(m::RoombaModel) = RoombaInitialDistribution(m)
+POMDPs.initialstate(m::RoombaModel{SS}) where SS <: ContinuousRoombaStateSpace = RoombaInitialDistribution(m)
 
-function get_a_random_state(m::RoombaMDP, rng::AbstractRNG)
-    x, y = init_pos(m.room, rng)
+function POMDPs.initialstate(m::RoombaModel{SS}) where SS <: DiscreteRoombaStateSpace
+    ss = sspace(m)
+    r = room(m)
+    x_states = range(ss.XLIMS[1], stop=ss.XLIMS[2], step=ss.x_step)
+    y_states = range(ss.YLIMS[1], stop=ss.YLIMS[2], step=ss.y_step)
+    th_states = range(-pi, stop=pi, step=ss.th_step)
+    sup = vec(collect(RoombaState(x,y,th,0.0) for x in x_states, y in y_states if in_room(r, SVec2(x,y)) for th in th_states))
+    SparseCat([convert_s(Int, s, m) for s in sup], fill(1.0/length(sup), length(sup)))
+end
+
+function Base.rand(rng::AbstractRNG, d::RoombaInitialDistribution)
+    x, y = init_pos(mdp(d.m).room, rng)
     th = rand(rng) * 2*pi - pi
     return RoombaState(x, y, th, 0.0)
 end
-
-function Base.rand(rng::AbstractRNG, d::RoombaInitialDistribution{<:RoombaModel{SS}}) where SS <: DiscreteRoombaStateSpace
-    s = get_a_random_state(mdp(d.m), rng)
-    si = stateindex(d.m, s)
-    return index_to_state(d.m, si)
-end
-
-Base.rand(rng::AbstractRNG, d::RoombaInitialDistribution{<:RoombaModel{SS}}) where SS <: ContinuousRoombaStateSpace = get_a_random_state(mdp(d.m), rng)
 
 # Render a room and show robot
 function render(ctx::CairoContext, m::RoombaModel, step)

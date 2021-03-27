@@ -31,7 +31,7 @@ function RoombaParticleFilter(model, n::Integer, v_noise_coeff, om_noise_coeff, 
 end
 
 # Modified Update function adds noise to the actions that propagate particles
-function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection{RoombaState}, a, o)
+function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection, a, o)
     pm = up._particle_memory
     wm = up._weight_memory
     empty!(pm)

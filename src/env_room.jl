@@ -182,20 +182,6 @@ function render(rect::Rectangle, ctx::CairoContext)
     end
 end
 
-# round corners to discretized coordinates if necessary
-function round_corners(sspace, corners)
-
-    if sspace isa DiscreteRoombaStateSpace
-        for i in 1:4
-            xi = floor(Int, (corners[i,1] - sspace.XLIMS[1]) / sspace.x_step + 0.5) + 1
-            yi = floor(Int, (corners[i,2] - sspace.YLIMS[1]) / sspace.y_step + 0.5) + 1
-            corners[i,1] = sspace.XLIMS[1] + (xi-1) * sspace.x_step
-            corners[i,2] = sspace.YLIMS[1] + (yi-1) * sspace.y_step
-        end
-    end
-    return corners
-end
-
 # generate consecutive rectangles that make up the room
 # all rectangles share a full "wall" with an adjacent rectangle
 # shared walls are not solid - just used to specify geometry
