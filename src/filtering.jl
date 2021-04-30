@@ -18,9 +18,9 @@ mutable struct RoombaParticleFilter{M<:RoombaModel,RM,RNG<:AbstractRNG,PMEM} <: 
     _weight_memory::Vector{Float64}
 end
 
-function RoombaParticleFilter(model, n::Integer, v_noise_coeff, om_noise_coeff, rng::AbstractRNG=Random.GLOBAL_RNG)
+function RoombaParticleFilter(model, n::Integer, v_noise_coeff, om_noise_coeff, resampler=LowVarianceResampler(n), rng::AbstractRNG=Random.GLOBAL_RNG)
     return RoombaParticleFilter(model,
-                               LowVarianceResampler(n),
+                               resampler,
                                n,
                                v_noise_coeff,
                                om_noise_coeff,
