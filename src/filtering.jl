@@ -41,7 +41,7 @@ function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection, a, o)
         if !isterminal(up.model, s)
             all_terminal = false
             # noise added here:
-            a_pert = a + SVec2(up.v_noise_coeff*(rand(up.rng)-0.5), up.om_noise_coeff*(rand(up.rng)-0.5))
+            a_pert = a + SVec2(up.v_noise_coeff * (rand(up.rng) - 0.5), up.om_noise_coeff * (rand(up.rng) - 0.5))
             sp = @gen(:sp)(up.model, s, a_pert, up.rng)
             push!(pm, sp)
             push!(wm, obs_weight(up.model, s, a_pert, sp, o))

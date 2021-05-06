@@ -8,7 +8,6 @@ using POMDPModelTools
 using Statistics
 using Graphics
 using Cairo
-using LinearAlgebra
 using Random
 using Base64
 using ParticleFilters

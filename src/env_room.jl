@@ -150,31 +150,6 @@ function wall_contact(rect::Rectangle, pos::SVec2)
     return contact, contact_mag
 end
 
-# Find closest distance to any wall
-function furthest_step(rect::Rectangle, pos::SVec2, heading::SVec2)
-    fs = Inf
-    for seg in rect.segments
-        new_fs = furthest_step(seg, pos, heading, ROBOT_W.val/2)
-        if new_fs < fs
-            fs = new_fs
-        end
-    end
-    return fs
-end
-
-# computes the length of a ray from robot center to closest segment 
-# from p0 pointing in direction heading
-function ray_length(rect::Rectangle, pos::SVec2, heading::SVec2)
-    rl = Inf
-    for seg in rect.segments
-        new_rl = ray_length(seg, pos, heading)
-        if new_rl < rl
-            rl = new_rl
-        end
-    end
-    return rl
-end
-
 # Render rectangle based on segments
 function render(rect::Rectangle, ctx::CairoContext)
     for seg in rect.segments
@@ -299,14 +274,28 @@ end
 
 # Attempts to translate from pos0 in direction heading for des_step without violating boundaries
 function legal_translate(r::Room, pos0::SVec2, heading::SVec2, des_step::Float64)
+    if des_step == 0.0
+        return pos0
+    end
+
+    R = ROBOT_W.val/2
+    pos1 = pos0 .+ des_step .* heading .+ R .* sign.(heading)
+
     fs = des_step
     for rect in r.rectangles
-        new_fs = furthest_step(rect, pos0, heading)
-        if new_fs < fs
-            fs = new_fs
+        for seg in rect.segments
+            if (seg.p1[1] == seg.p2[1]) ?
+                (pos0[1] - seg.p1[1]) * (pos1[1] - seg.p2[1]) > 0 :
+                (pos0[2] - seg.p1[2]) * (pos1[2] - seg.p2[2]) > 0 
+                continue
+            end
+            new_fs = furthest_step(seg, pos0, heading, R)
+            if new_fs < fs
+                fs = new_fs
+            end
         end
     end
-    pos1 = pos0 + fs*heading
+    pos1 = pos0 + fs * heading
     if !in_room(r, pos1)
         return pos0
     else
@@ -322,10 +311,18 @@ end
 # outputs: ray_length [m]
 function ray_length(r::Room, pos0::SVec2, heading::SVec2)
     rl = Inf
+    pos1 = Inf .* heading
     for rect in r.rectangles
-        new_rl = ray_length(rect, pos0, heading)
-        if new_rl < rl
-            rl = new_rl
+        for seg in rect.segments
+            if (seg.p1[1] == seg.p2[1]) ?
+                (pos0[1] - seg.p1[1]) * (pos1[1] - seg.p2[1]) > 0 :
+                (pos0[2] - seg.p1[2]) * (pos1[2] - seg.p2[2]) > 0 
+                continue
+            end
+            new_rl = ray_length(seg, pos0, heading)
+            if new_rl < rl
+                rl = new_rl
+            end
         end
     end
     return rl
