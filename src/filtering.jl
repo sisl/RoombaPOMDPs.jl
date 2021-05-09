@@ -18,9 +18,9 @@ mutable struct RoombaParticleFilter{M<:RoombaModel,RM,RNG<:AbstractRNG,PMEM} <: 
     _weight_memory::Vector{Float64}
 end
 
-function RoombaParticleFilter(model, n::Integer, v_noise_coeff, om_noise_coeff, rng::AbstractRNG=Random.GLOBAL_RNG)
+function RoombaParticleFilter(model, n::Integer, v_noise_coeff, om_noise_coeff, resampler=LowVarianceResampler(n), rng::AbstractRNG=Random.GLOBAL_RNG)
     return RoombaParticleFilter(model,
-                               LowVarianceResampler(n),
+                               resampler,
                                n,
                                v_noise_coeff,
                                om_noise_coeff,
@@ -31,7 +31,7 @@ function RoombaParticleFilter(model, n::Integer, v_noise_coeff, om_noise_coeff, 
 end
 
 # Modified Update function adds noise to the actions that propagate particles
-function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection{RoombaState}, a, o)
+function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection, a, o)
     pm = up._particle_memory
     wm = up._weight_memory
     empty!(pm)
@@ -41,7 +41,7 @@ function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection{RoombaSta
         if !isterminal(up.model, s)
             all_terminal = false
             # noise added here:
-            a_pert = a + SVec2(up.v_noise_coeff*(rand(up.rng)-0.5), up.om_noise_coeff*(rand(up.rng)-0.5))
+            a_pert = a + SVec2(up.v_noise_coeff * (rand(up.rng) - 0.5), up.om_noise_coeff * (rand(up.rng) - 0.5))
             sp = @gen(:sp)(up.model, s, a_pert, up.rng)
             push!(pm, sp)
             push!(wm, obs_weight(up.model, s, a_pert, sp, o))

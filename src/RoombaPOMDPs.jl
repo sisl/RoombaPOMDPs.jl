@@ -1,4 +1,4 @@
-module AA228FinalProject
+module RoombaPOMDPs
 
 using POMDPs
 using Distributions
@@ -8,7 +8,6 @@ using POMDPModelTools
 using Statistics
 using Graphics
 using Cairo
-using LinearAlgebra
 using Random
 using Base64
 using ParticleFilters
@@ -22,12 +21,12 @@ export
     RoombaMDP,
     RoombaPOMDP,
     RoombaModel,
-    BumperPOMDP,
-    BumperResampler,
     Bumper,
+    BumperPOMDP,
     Lidar,
+    LidarPOMDP,
     DiscreteLidar,
-    LidarResampler,
+    DiscreteLidarPOMDP,
     RoombaParticleFilter,
     get_goal_xy,
     wrap_to_pi,

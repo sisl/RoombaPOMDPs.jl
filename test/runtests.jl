@@ -1,14 +1,14 @@
 # import necessary packages
-using AA228FinalProject
+using RoombaPOMDPs
 using POMDPs
 using POMDPPolicies
-using BeliefUpdaters
 using ParticleFilters
 using POMDPSimulators
 using Cairo
 using Gtk
 using Random
 using Test
+using POMDPTesting
 
 sensor = Lidar() # or Bumper() for the bumper version of the environment
 config = 3 # 1,2, or 3
@@ -83,4 +83,14 @@ for (ext, mime) in ["html"=>MIME("text/html"), "svg"=>MIME("image/svg+xml"), "pn
         show(f, mime, v)
     end
     @test filesize(fname) > 0
+end
+
+m = RoombaPOMDP(sensor=sensor, mdp=RoombaMDP(config=config, aspace=vec([RoombaAct(v, om) for v in range(0, stop=2, length=2) for om in range(-2, stop=2, length=3)]), sspace=DiscreteRoombaStateSpace(41, 26, 20)));
+@test has_consistent_initial_distribution(m)
+@test has_consistent_transition_distributions(m)
+
+belief_updater = RoombaParticleFilter(m, num_particles, v_noise_coefficient, om_noise_coefficient)
+
+for step in stepthrough(m,RandomPolicy(m),belief_updater, max_steps=100)
+    @show convert_s(RoombaState, step.s, m), step.a, step.o, step.r
 end
