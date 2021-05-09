@@ -8,6 +8,7 @@ using Cairo
 using Gtk
 using Random
 using Test
+using POMDPTesting
 
 sensor = Lidar() # or Bumper() for the bumper version of the environment
 config = 3 # 1,2, or 3
@@ -85,25 +86,8 @@ for (ext, mime) in ["html"=>MIME("text/html"), "svg"=>MIME("image/svg+xml"), "pn
 end
 
 m = RoombaPOMDP(sensor=sensor, mdp=RoombaMDP(config=config, aspace=vec([RoombaAct(v, om) for v in range(0, stop=2, length=2) for om in range(-2, stop=2, length=3)]), sspace=DiscreteRoombaStateSpace(41, 26, 20)));
-
-@testset "DiscreteRoomba Test" begin
-    d = initialstate(m)
-    @test sum(pdf(d, s) for s in support(d)) ≈ 1.0
-    @test sum(pdf(d, s) for s in states(m)) ≈ 1.0
-    s = rand(states(m))
-    for a in actions(m)
-        T = transition(m, s, a)
-        p = 0.0
-        for sp in states(m)
-            p += pdf(T, sp)
-        end
-        @test p ≈ 1.0
-    end
-
-    for s in states(m)
-        @test s == convert_s(Int, convert_s(RoombaState, s, m), m)
-    end
-end
+@test has_consistent_initial_distribution(m)
+@test has_consistent_transition_distributions(m)
 
 belief_updater = RoombaParticleFilter(m, num_particles, v_noise_coefficient, om_noise_coefficient)
 
