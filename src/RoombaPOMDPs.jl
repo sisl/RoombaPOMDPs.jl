@@ -1,4 +1,4 @@
-module AA228FinalProject
+module RoombaPOMDPs
 
 using POMDPs
 using Distributions

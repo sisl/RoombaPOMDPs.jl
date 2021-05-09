@@ -1,5 +1,5 @@
 # import necessary packages
-using AA228FinalProject
+using RoombaPOMDPs
 using POMDPs
 using POMDPPolicies
 using ParticleFilters
