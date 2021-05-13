@@ -115,13 +115,12 @@ along this line.
 """
 function furthest_step(ls::LineSegment, p0::SVec2, heading::SVec2, R::Float64)
     furthest_step = Inf
-    f(s) = isnan(s) ? furthest_step : min(max(-MARGIN, s), furthest_step)
 
     # intesection with p1
-    furthest_step = f(real_intersect_line_circle(p0, heading, ls.p1, R))
+    furthest_step = update_fs(real_intersect_line_circle(p0, heading, ls.p1, R), furthest_step)
 
     # intesection with p2
-    furthest_step = f(real_intersect_line_circle(p0, heading, ls.p2, R))
+    furthest_step = update_fs(real_intersect_line_circle(p0, heading, ls.p2, R), furthest_step)
 
     # make sure the normal vector goes opposite with heading
     if dot(ls.n, heading) > 0
@@ -133,10 +132,12 @@ function furthest_step(ls::LineSegment, p0::SVec2, heading::SVec2, R::Float64)
     p2 = ls.p2 + R * ls.n
 
     # intersection with the segment
-    furthest_step = f(intersect_line_linesegment(p0, heading, p1, p2))
+    furthest_step = update_fs(intersect_line_linesegment(p0, heading, p1, p2), furthest_step)
 
     return max(furthest_step, 0.0)
 end
+
+@inline update_fs(new_fs::Float64, old_fs::Float64) = isnan(new_fs) ? old_fs : min(max(-MARGIN, new_fs), old_fs)
 
 # Transform coordinates in world frame to coordinates used for rendering
 function transform_coords(pos::SVec2)
