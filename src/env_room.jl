@@ -279,7 +279,7 @@ function legal_translate(r::Room, pos0::SVec2, heading::SVec2, des_step::Float64
     end
 
     R = ROBOT_W.val/2
-    pos1 = pos0 .+ des_step .* heading .+ R .* sign.(heading)
+    pos1 = pos0 + des_step * heading + R * sign.(heading)
 
     fs = des_step
     for rect in r.rectangles

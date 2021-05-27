@@ -260,7 +260,7 @@ function get_next_state(m::RoombaMDP, s::RoombaState, a::RoombaAct)
     p0 = SVec2(x, y)
     heading = SVec2(cos(next_th), sin(next_th))
     des_step = v*dt
-    next_x, next_y = legal_translate(m.room, p0, heading, des_step)
+    pos = legal_translate(m.room, p0, heading, des_step)
 
     # Determine whether goal state or stairs have been reached
     r = room(m)
@@ -270,10 +270,10 @@ function get_next_state(m::RoombaMDP, s::RoombaState, a::RoombaAct)
     swn = r.stair_wall
     gr = r.rectangles[grn]
     sr = r.rectangles[srn]
-    next_status = 1.0 * contact_wall(gr, gwn, SVec2(next_x, next_y)) - 1.0 * contact_wall(sr, swn, SVec2(next_x, next_y))
+    next_status = 1.0 * contact_wall(gr, gwn, pos) - 1.0 * contact_wall(sr, swn, pos)
 
     # define next state
-    return RoombaState(next_x, next_y, next_th, next_status)
+    return RoombaState(pos[1], pos[2], next_th, next_status)
 end
 
 # enumerate all possible states in a DiscreteRoombaStateSpace
