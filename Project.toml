@@ -19,7 +19,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reel = "71555da5-176e-5e73-a222-aebc6c6e4f2f"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-
+POMDPTools = "7588e00f-9cae-40de-98dc-e0c70c48cdd7"
 [compat]
 Distributions = "0.22 - 0.24"
 POMDPModelTools = "0.3"
