@@ -1,6 +1,6 @@
 # RoombaPOMDPs
 
-[![Build Status](https://travis-ci.org/sisl/RoombaPOMDPs.jl.svg?branch=master)](https://travis-ci.org/sisl/RoombaPOMDPs.jl)
+[![CI](https://github.com/sisl/RoombaPOMDPs.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/sisl/RoombaPOMDPs.jl/actions/workflows/ci.yml)
 
 Roomba is a localization POMDP problem. A robotic vacuum cleaner, also known as Roomba, finds itself in a familiar room but does not know its exact position. It then tries to locate itself with the observations it receives. Roomba can equip two types of sensors, Lidar or Bumper. 
 With a Lidar sensor, the robot receives a noisy Lidar measurement indicating the distance to obstacles in the front.
