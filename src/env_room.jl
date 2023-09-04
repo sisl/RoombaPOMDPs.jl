@@ -185,11 +185,16 @@ mutable struct Room
             retval.goal_wall = 3
             retval.stair_rect = 2
             retval.stair_wall = 1
-        else
+        elseif configuration == 1
             retval.goal_rect = 4
             retval.goal_wall = 3
             retval.stair_rect = 4
             retval.stair_wall = 4
+        else
+            retval.goal_rect = 4
+            retval.goal_wall = 4
+            retval.stair_rect = 4
+            retval.stair_wall = 3
         end
         goal_idxs[retval.goal_rect] = retval.goal_wall
         stair_idxs[retval.stair_rect] = retval.stair_wall
