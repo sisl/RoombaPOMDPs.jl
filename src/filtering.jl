@@ -29,7 +29,9 @@ function RoombaParticleFilter(model, n::Integer, v_noise_coeff, om_noise_coeff, 
                                sizehint!(Float64[], n)
                               )
 end
-
+struct ParticleDeathResampler end # resampler to let particles die out after they terminate (for search)
+get_resampler(resampler, ::Int) = resampler
+get_resampler(::ParticleDeathResampler, n::Int) = LowVarianceResampler(n)
 # Modified Update function adds noise to the actions that propagate particles
 function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection, a, o)
     pm = up._particle_memory
@@ -51,8 +53,8 @@ function POMDPs.update(up::RoombaParticleFilter, b::ParticleCollection, a, o)
     if all_terminal
         error("Particle filter update error: all states in the particle collection were terminal.")
     end
-
-    return ParticleFilters.resample(up.resampler,
+    resampler = get_resampler(up.resampler, length(pm))
+    return ParticleFilters.resample(resampler,
                     WeightedParticleBelief(pm, wm, sum(wm), nothing),
                     up.model,
                     up.model,

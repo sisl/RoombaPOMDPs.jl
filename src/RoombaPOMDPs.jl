@@ -28,6 +28,7 @@ export
     DiscreteLidar,
     DiscreteLidarPOMDP,
     RoombaParticleFilter,
+    ParticleDeathResampler,
     get_goal_xy,
     wrap_to_pi,
     ContinuousRoombaStateSpace,
