@@ -166,8 +166,13 @@ sensor(m::RoombaPOMDP) = m.sensor
 
 # observation models
 struct Bumper end
-POMDPs.obstype(::Type{Bumper}) = Bool
-POMDPs.obstype(::Bumper) = Bool
+struct FrontBumper 
+    max_theta::Float64 # wall must be within [-max_theta, max_theta] of heading
+end
+FrontBumper() = FrontBumper(π/4)
+const AbstractBumper = Union{Bumper,FrontBumper}
+POMDPs.obstype(::Type{AbstractBumper}) = Bool
+POMDPs.obstype(::AbstractBumper) = Bool
 
 struct Lidar 
     ray_stdev::Float64 # measurement noise: see POMDPs.observation definition
@@ -191,6 +196,8 @@ DiscreteLidar(disc_points) = DiscreteLidar(Lidar().ray_stdev, disc_points, Vecto
 # Shorthands
 const RoombaModel{SS, AS} = Union{RoombaMDP{SS, AS}, RoombaPOMDP{SS, AS}}
 const BumperPOMDP{SS, AS, S} = RoombaPOMDP{SS, AS, S, Bumper, Bool}
+const FrontBumperPOMDP{SS, AS, S} = RoombaPOMDP{SS, AS, S, FrontBumper, Bool}
+const AbstractBumperPOMDP{SS, AS, S} = RoombaPOMDP{SS, AS, S, AbstractBumper, Bool}
 const LidarPOMDP{SS, AS, S} = RoombaPOMDP{SS, AS, S, Lidar, Float64}
 const DiscreteLidarPOMDP{SS, AS, S} = RoombaPOMDP{SS, AS, S, DiscreteLidar, Int}
 
@@ -355,13 +362,32 @@ POMDPs.reward(m::RoombaModel, si::Int, a::RoombaAct, spi::Int) = reward(m, conve
 POMDPs.isterminal(m::RoombaModel, s::RoombaState) = abs(s.status) > 0.0
 POMDPs.isterminal(m::RoombaModel, s::Int) = n_states(m) - s < 2
 
+# simultaneously determine if a roomba is bumping a wall and facing it
+function wall_contact_facing(r::Room, b::FrontBumper, state::RoombaState)
+    for (i, rect) in enumerate(r.rectangles)
+        pos = SVec2(state.x, state.y) # state to SVec2 pos
+        wc, _ = wall_contact(rect, pos)
+        if wc >= 0
+            wall_th = pi - pi/2 * (wc - 1) # wc = {1,2,3,4}, state.th, b.max_theta
+            is_facing = wrap_to_pi(abs(wall_th - state.theta)) <= b.max_theta
+            return true, is_facing
+        end
+    end
+    return false, false
+end
+
 # Bumper POMDP observation
 POMDPs.observation(m::BumperPOMDP, sp::RoombaState) = Deterministic(wall_contact(m, sp)) # in {false,true}
-POMDPs.observation(m::BumperPOMDP, sp::Int) = observation(m, convert_s(RoombaState, sp, m))
+function POMDPs.observation(m::FrontBumperPOMDP, sp::RoombaState) 
+    # function to determin if facing a wall
+    contact, facing = wall_contact_facing(mdp(m).room, sensor(m), sp)
+    return Deterministic(contact && facing)
+end
+POMDPs.observation(m::AbstractBumperPOMDP, sp::Int) = observation(m, convert_s(RoombaState, sp, m))
 
-n_observations(m::BumperPOMDP) = 2
-POMDPs.observations(m::BumperPOMDP) = [false, true]
-POMDPs.obsindex(m::BumperPOMDP, o::Bool) = o + 1
+n_observations(m::AbstractBumperPOMDP) = 2
+POMDPs.observations(m::AbstractBumperPOMDP) = [false, true]
+POMDPs.obsindex(m::AbstractBumperPOMDP, o::Bool) = o + 1
 
 # Lidar POMDP observation
 function lidar_obs_distribution(m::RoombaMDP, ray_stdev::Float64, sp::RoombaState)
