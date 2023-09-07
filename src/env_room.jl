@@ -284,9 +284,12 @@ function legal_translate(r::Room, pos0::SVec2, heading::SVec2, des_step::Float64
     end
 
     R = ROBOT_W.val/2
-    pos1 = pos0 + des_step * heading + R * sign.(heading)
-
+    pos1 = pos0 + des_step * heading + R * sign.(heading) # where we want to go
+    if in_room(r, pos1)
+        return pos0 + des_step * heading
+    end    
     fs = des_step
+    # finding closest distance to a segment along heading
     for rect in r.rectangles
         for seg in rect.segments
             if (seg.p1[1] == seg.p2[1]) ?
@@ -300,11 +303,11 @@ function legal_translate(r::Room, pos0::SVec2, heading::SVec2, des_step::Float64
             end
         end
     end
-    pos1 = pos0 + fs * heading
-    if !in_room(r, pos1)
+    pos2 = pos0 + fs * heading # wall between pos0 and pos1 vector
+    if !in_room(r, pos2)
         return pos0
     else
-        return pos1
+        return pos2
     end
 end
 
