@@ -12,6 +12,7 @@ using Random
 using Base64
 using ParticleFilters
 using NearestNeighbors
+using Infiltrator 
 
 import POMDPModelTools: render
 

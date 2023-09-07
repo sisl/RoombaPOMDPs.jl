@@ -284,12 +284,11 @@ function legal_translate(r::Room, pos0::SVec2, heading::SVec2, des_step::Float64
     end
 
     R = ROBOT_W.val/2
-    pos1 = pos0 + des_step * heading + R * sign.(heading) # where we want to go
-    if in_room(r, pos1)
-        return pos0 + des_step * heading
-    end    
+    desired_pos = pos0 + des_step * heading
+    pos1 = desired_pos + R * sign.(heading) # tip of robot after desired pos
+
+    # compute backtracking step if final heading passes through a wall
     fs = des_step
-    # finding closest distance to a segment along heading
     for rect in r.rectangles
         for seg in rect.segments
             if (seg.p1[1] == seg.p2[1]) ?
@@ -303,12 +302,17 @@ function legal_translate(r::Room, pos0::SVec2, heading::SVec2, des_step::Float64
             end
         end
     end
-    pos2 = pos0 + fs * heading # wall between pos0 and pos1 vector
-    if !in_room(r, pos2)
-        return pos0
-    else
-        return pos2
+    pos1 = pos0 + fs * heading
+    !in_room(r, pos1) && return pos0 # dummy check
+    
+    # if backtracked, compute the projection of the desired position to the room
+    if fs < des_step
+        try1 = SVec2(desired_pos[1], pos1[2])
+        try2 = SVec2(pos1[1], desired_pos[2])
+        in_room(r, try1) && return try1
+        in_room(r, try2) && return try2
     end
+    return pos1
 end
 
 # computes the length of a ray from robot center to closest segment
