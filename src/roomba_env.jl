@@ -339,6 +339,10 @@ function POMDPs.reward(m::RoombaModel,
                 a::RoombaAct,
                 sp::RoombaState)
     
+    if s.status == 1. || s.status == -1.
+        return 0.
+    end
+    
     # penalty for each timestep elapsed
     cum_reward = mdp(m).time_pen
 
