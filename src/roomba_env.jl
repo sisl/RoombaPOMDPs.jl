@@ -371,7 +371,7 @@ function lidar_obs_distribution(m::RoombaMDP, ray_stdev::Float64, sp::RoombaStat
     # compute observation noise
     sigma = ray_stdev * max(rl, 0.01)
     # disallow negative measurements
-    return Truncated(Normal(rl, sigma), 0.0, Inf)
+    return truncated(Normal(rl, sigma), 0.0, Inf)
 end
 
 POMDPs.observation(m::LidarPOMDP, sp::RoombaState) = lidar_obs_distribution(mdp(m), sensor(m).ray_stdev, sp)

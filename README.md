@@ -13,8 +13,6 @@ An example video showing the robot first localizing itself using its bump sensor
 ## Installation
 Run the following commands in Julia:
 ```julia
-import POMDPs
-POMDPs.add_registry()
 using Pkg
 Pkg.add(url="https://github.com/sisl/RoombaPOMDPs.git")
 ```

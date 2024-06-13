@@ -1,14 +1,12 @@
 # import necessary packages
 using RoombaPOMDPs
 using POMDPs
-using POMDPPolicies
+using POMDPTools
 using ParticleFilters
-using POMDPSimulators
 using Cairo
 using Gtk
 using Random
 using Test
-using POMDPTools
 
 sensor = Lidar() # or Bumper() for the bumper version of the environment
 config = 3 # 1,2, or 3

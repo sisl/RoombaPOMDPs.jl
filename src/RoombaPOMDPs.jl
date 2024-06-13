@@ -4,16 +4,14 @@ using POMDPs
 using Distributions
 using StaticArrays
 using Parameters
-using POMDPModelTools
+using POMDPTools
 using Statistics
 using Graphics
 using Cairo
 using Random
-using Base64
 using ParticleFilters
-using NearestNeighbors
 
-import POMDPModelTools: render
+import POMDPTools: render
 
 export
     RoombaState,
